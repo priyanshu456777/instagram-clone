@@ -7,17 +7,30 @@ import api from "../../lib/api";
 import { getSocket } from "../../lib/socket";
 import { useAuth } from "../../context/AuthContext";
 import Avatar from "../UI/Avatar";
+import PostCarousel from "./PostCarousel";
+import { CaptionText } from "../../lib/textParse";
 import CommentSection from "./CommentSection";
 
 export default function PostCard({ post }) {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(post.isLiked);
-  const [likesCount, setLikesCount] = useState(post.likesCount ?? post.likes?.length ?? 0);
+  const [likesCount, setLikesCount] = useState(
+    post.likesCount ?? post.likes?.length ?? 0
+  );
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
   const [showComments, setShowComments] = useState(false);
   const [liking, setLiking] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Backward-compat: backend may still return `image` (singular) for old posts.
+  // Use `images` array if present, otherwise fall back to a one-element array.
+  const images =
+    post.images && post.images.length > 0
+      ? post.images
+      : post.image
+      ? [post.image]
+      : [];
 
   useEffect(() => {
     const socket = getSocket();
@@ -26,8 +39,8 @@ export default function PostCard({ post }) {
     const handleLikeUpdate = (payload) => {
       if (payload.postId === post._id) setLikesCount(payload.likesCount);
     };
-    socket.on("likeUpdate", handleLikeUpdate);
 
+    socket.on("likeUpdate", handleLikeUpdate);
     return () => {
       socket.emit("leavePost", post._id);
       socket.off("likeUpdate", handleLikeUpdate);
@@ -43,14 +56,17 @@ export default function PostCard({ post }) {
 
     setLiking(true);
     const prevLiked = isLiked;
+    // OPTIMISTIC UI — flip the state immediately, rollback on error.
     setIsLiked(!prevLiked);
     setLikesCount((c) => (prevLiked ? c - 1 : c + 1));
 
     try {
       const { data } = await api.put(`/posts/${post._id}/like`);
+      // Reconcile with server's authoritative count.
       setIsLiked(data.isLiked);
       setLikesCount(data.likesCount);
     } catch (err) {
+      // Rollback on failure.
       setIsLiked(prevLiked);
       setLikesCount((c) => (prevLiked ? c + 1 : c - 1));
       toast.error(err.message);
@@ -69,9 +85,12 @@ export default function PostCard({ post }) {
       return;
     }
     if (saving) return;
+
     setSaving(true);
     const prev = isSaved;
+    // Optimistic — flip now, rollback if server fails.
     setIsSaved(!prev);
+
     try {
       const { data } = await api.put(`/users/save/${post._id}`);
       setIsSaved(data.isSaved);
@@ -84,66 +103,94 @@ export default function PostCard({ post }) {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-xl2 overflow-hidden mb-6">
-      <div className="flex items-center gap-3 px-4 py-3">
-        <Avatar src={post.user?.avatar?.url} name={post.user?.name} size={36} />
-        <div className="min-w-0">
-          <Link href={`/profile/${post.user?.username}`} className="font-medium text-sm hover:underline">
+    <div className="bg-white border rounded-lg mb-4 group">
+      {/* Header */}
+      <div className="flex items-center p-4">
+        <Link href={`/profile/${post.user?.username}`}>
+          <Avatar src={post.user?.avatar?.url || post.user?.avatar} size="md" />
+        </Link>
+        <div className="ml-3 flex-1 min-w-0">
+          <Link
+            href={`/profile/${post.user?.username}`}
+            className="font-semibold hover:underline"
+          >
             {post.user?.username}
           </Link>
-          <p className="text-xs text-gray-500 truncate">{post.user?.location || ""}</p>
+          {post.location && (
+            <p className="text-sm text-gray-500 truncate">{post.location}</p>
+          )}
         </div>
       </div>
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={post.image?.url} alt={post.caption || "post"} className="w-full max-h-[600px] object-cover" />
+      {/* Image / carousel — supports multi-image posts */}
+      <PostCarousel images={images} alt={post.caption || "Post image"} />
 
-      <div className="px-4 pt-3 flex items-center gap-4">
-        <button onClick={handleLike} className="transition-transform active:scale-90">
-          <Heart
-            size={24}
-            className={isLiked ? "fill-red-500 text-red-500" : "text-gray-300"}
+      {/* Action bar */}
+      <div className="p-4">
+        <div className="flex items-center gap-4 mb-3">
+          <button
+            onClick={handleLike}
+            className={`p-2 hover:bg-gray-100 rounded-full transition-transform active:scale-125 ${
+              isLiked ? "text-red-500" : ""
+            }`}
+            aria-label={isLiked ? "Unlike" : "Like"}
+          >
+            <Heart className={isLiked ? "fill-current" : ""} />
+          </button>
+          <button
+            onClick={() => setShowComments((s) => !s)}
+            className="p-2 hover:bg-gray-100 rounded-full"
+            aria-label="Comments"
+          >
+            <MessageCircle />
+          </button>
+          <button className="p-2 hover:bg-gray-100 rounded-full" aria-label="Share">
+            <Send />
+          </button>
+          <button
+            onClick={handleSaveToggle}
+            className={`ml-auto p-2 hover:bg-gray-100 rounded-full ${
+              isSaved ? "text-blue-500" : ""
+            }`}
+            aria-label={isSaved ? "Unsave" : "Save"}
+          >
+            <Bookmark className={isSaved ? "fill-current" : ""} />
+          </button>
+        </div>
+
+        <p className="font-semibold mb-2">{likesCount.toLocaleString()} likes</p>
+
+        {/* Caption with clickable hashtags + mentions */}
+        {post.caption && (
+          <p className="mb-2">
+            <Link
+              href={`/profile/${post.user?.username}`}
+              className="font-semibold mr-2 hover:underline"
+            >
+              {post.user?.username}
+            </Link>
+            <CaptionText text={post.caption} />
+          </p>
+        )}
+
+        <button
+          onClick={() => setShowComments((s) => !s)}
+          className="px-4 pt-1 text-sm text-gray-500 hover:text-gray-300"
+        >
+          {commentsCount > 0
+            ? `View all ${commentsCount} comments`
+            : "Add a comment"}
+        </button>
+
+        <p className="px-4 pt-1 text-xs text-gray-400">{format(post.createdAt)}</p>
+
+        {showComments && (
+          <CommentSection
+            postId={post._id}
+            onCommentsCountChange={handleCommentsCountChange}
           />
-        </button>
-        <button onClick={() => setShowComments((s) => !s)}>
-          <MessageCircle size={24} className="text-gray-300" />
-        </button>
-        <button className="text-gray-300">
-          <Send size={22} />
-        </button>
-        <button onClick={handleSaveToggle} className="ml-auto">
-          <Bookmark
-            size={24}
-            className={isSaved ? "fill-white text-white" : "text-gray-300"}
-          />
-        </button>
+        )}
       </div>
-
-      <div className="px-4 pt-2 pb-1 text-sm font-medium">{likesCount.toLocaleString()} likes</div>
-
-      {post.caption && (
-        <div className="px-4 text-sm">
-          <Link href={`/profile/${post.user?.username}`} className="font-medium mr-1 hover:underline">
-            {post.user?.username}
-          </Link>
-          <span className="text-gray-300">{post.caption}</span>
-        </div>
-      )}
-
-      <button
-        onClick={() => setShowComments((s) => !s)}
-        className="px-4 pt-1 text-sm text-gray-500 hover:text-gray-300"
-      >
-        {commentsCount > 0 ? `View all ${commentsCount} comments` : "Add a comment"}
-      </button>
-
-      <div className="px-4 pb-2 pt-1 text-xs text-gray-600 uppercase">{format(post.createdAt)}</div>
-
-      {showComments && (
-        <div className="border-t border-border px-4 py-3 h-64">
-          <CommentSection postId={post._id} onCommentsCountChange={handleCommentsCountChange} />
-        </div>
-      )}
     </div>
   );
 }
