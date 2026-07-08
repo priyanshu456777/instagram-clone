@@ -6,18 +6,27 @@ const multer = require("multer");
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-  if (allowedTypes.includes(file.mimetype)) {
+  const allowedImageTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+  const allowedVideoTypes = ["video/mp4", "video/webm", "video/quicktime"];
+
+  if (allowedImageTypes.includes(file.mimetype) || allowedVideoTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Only .jpg, .jpeg, .png and .webp image files are allowed"), false);
+    cb(
+      new Error("Only .jpg, .jpeg, .png, .webp images and .mp4 / .webm videos are allowed"),
+      false
+    );
   }
 };
 
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max — keeps uploads fast, no delays
+  limits: {
+    // 50MB to safely handle short videos too (Reels-ready). Pure-image posts
+    // still get rejected earlier in the controller if individual file > 5MB.
+    fileSize: 50 * 1024 * 1024,
+  },
 });
 
 module.exports = upload;

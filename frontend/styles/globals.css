@@ -2,28 +2,120 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
+html, body {
   background-color: #121212;
   color: #e5e7eb;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
+
 * {
   box-sizing: border-box;
 }
+
 ::-webkit-scrollbar {
   width: 8px;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #2a2a2e;
   border-radius: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Skeleton shimmer — used by Skeletons.js components.
+   Animates a subtle gradient sweep across placeholder boxes while content loads.
+   ---------------------------------------------------------------------------*/
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton-shimmer {
+  background-color: #1f1f23;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    transparent 100%
+  );
+  background-size: 1000px 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 2s infinite linear;
+}
+
+/* --------------------------------------------------------------------------
+   Carousel — hide the right edge dot pattern by default; the dots indicator
+   lives inside PostCarousel. This is a safety net for older browsers.
+   ---------------------------------------------------------------------------*/
+.carousel-fade-enter {
+  opacity: 0;
+}
+.carousel-fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms ease-in;
+}
+
+/* --------------------------------------------------------------------------
+   Heart-burst animation — used when a post is liked. Triggered by toggling
+   a class on the like button. Optional polish; safe to keep as a no-op if not
+   referenced anywhere.
+   ---------------------------------------------------------------------------*/
+@keyframes heart-burst {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.4); }
+  60%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+.like-animation {
+  animation: heart-burst 350ms ease-out;
+}
+
+/* --------------------------------------------------------------------------
+   Like button double-tap heart overlay — Instagram's signature interaction.
+   Use on the post image: onDoubleTap={() => setShowHeartBurst(true)}.
+   ---------------------------------------------------------------------------*/
+@keyframes heart-float {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+.heart-burst-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 90px;
+  pointer-events: none;
+  animation: heart-float 1s ease-out forwards;
+  filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.5));
 }
