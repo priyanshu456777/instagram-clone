@@ -1,122 +1,379 @@
+// backend/controllers/commentController.js
+
+// Polymorphic comment controller — same endpoints handle Posts AND Reels
+
+// All external dependencies (notifications, etc.) are optional + lazy-loaded
+
+// so the file works even if optional utils don't exist
+
+
+const mongoose = require("mongoose");
+
 const asyncHandler = require("express-async-handler");
-const { validationResult } = require("express-validator");
+
 const Comment = require("../models/Comment");
+
 const Post = require("../models/Post");
-const Notification = require("../models/Notification");
 
-// @desc    Add a comment to a post
-// @route   POST /api/posts/:id/comments
+const Reel = require("../models/Reel");
+
+
+// Lazy-load notifications so it's optional — won't crash if utils/notifications.js is missing
+
+let createNotification = null;
+
+try {
+
+  const notifMod = require("../utils/notifications");
+
+  createNotification = notifMod.createNotification || notifMod.default || notifMod;
+
+} catch (e) {
+
+  // No notifications module — that's fine, comments still work
+
+  createNotification = async () => Promise.resolve();
+
+}
+
+
+// Helper — verify target exists and return the doc
+
+async function resolveTarget(targetType, targetId) {
+
+  if (!["post", "reel"].includes(targetType)) {
+
+    const err = new Error("Invalid targetType. Must be 'post' or 'reel'.");
+
+    err.statusCode = 400;
+
+    throw err;
+
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(targetId)) {
+
+    const err = new Error("Invalid targetId.");
+
+    err.statusCode = 400;
+
+    throw err;
+
+  }
+
+  const Model = targetType === "post" ? Post : Reel;
+
+  const doc = await Model.findById(targetId).select("_id author").lean();
+
+  if (!doc) {
+
+    const err = new Error(`${targetType} not found.`);
+
+    err.statusCode = 404;
+
+    throw err;
+
+  }
+
+  return doc;
+
+}
+
+
+// @desc    Add a comment to a post or reel (or reply to a comment)
+
+// @route   POST /api/comments
+
 // @access  Private
+
 const addComment = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
+
+  const { text, targetType, targetId, parentComment } = req.body;
+
+
+  if (!text || !text.trim()) {
+
     res.status(400);
-    throw new Error(errors.array()[0].msg);
+
+    throw new Error("Comment text is required.");
+
   }
 
-  const post = await Post.findById(req.params.id);
-  if (!post) {
-    res.status(404);
-    throw new Error("Post not found");
+
+  const target = await resolveTarget(targetType, targetId);
+
+
+  if (parentComment) {
+
+    if (!mongoose.Types.ObjectId.isValid(parentComment)) {
+
+      res.status(400);
+
+      throw new Error("Invalid parentComment id.");
+
+    }
+
+    const parent = await Comment.findById(parentComment).select("_id targetType targetId").lean();
+
+    if (!parent) {
+
+      res.status(404);
+
+      throw new Error("Parent comment not found.");
+
+    }
+
+    if (parent.targetType !== targetType || parent.targetId.toString() !== targetId) {
+
+      res.status(400);
+
+      throw new Error("Parent comment does not belong to this target.");
+
+    }
+
   }
+
 
   const comment = await Comment.create({
-    post: post._id,
-    user: req.user._id,
-    text: req.body.text,
+
+    text: text.trim(),
+
+    author: req.user._id,
+
+    targetType,
+
+    targetId,
+
+    parentComment: parentComment || null,
+
   });
 
-  post.commentsCount += 1;
-  await post.save();
 
-  const populatedComment = await Comment.findById(comment._id).populate(
-    "user",
-    "username name avatar"
-  );
+  const populated = await Comment.findById(comment._id)
 
-  // Notify post owner in real time
-  if (post.user.toString() !== req.user._id.toString()) {
-    const notification = await Notification.create({
-      recipient: post.user,
-      sender: req.user._id,
-      type: "comment",
-      post: post._id,
-    });
-    const io = req.app.get("io");
-    io.to(post.user.toString()).emit("newNotification", {
-      type: "comment",
-      from: { _id: req.user._id, username: req.user.username, avatar: req.user.avatar },
-      postId: post._id,
-      createdAt: notification.createdAt,
-    });
+    .populate("author", "username name avatar")
+
+    .lean();
+
+
+  // Fire-and-forget notification (no-op if utils/notifications.js doesn't exist)
+
+  if (
+
+    createNotification &&
+
+    target.author &&
+
+    target.author.toString() !== req.user._id.toString()
+
+  ) {
+
+    Promise.resolve(
+
+      createNotification({
+
+        recipient: target.author,
+
+        sender: req.user._id,
+
+        type: parentComment ? "reply" : "comment",
+
+        targetType,
+
+        targetId,
+
+      })
+
+    ).catch((e) => console.warn("[comment] notification skipped:", e.message));
+
   }
 
-  // Broadcast the new comment live to anyone viewing this post
-  const io = req.app.get("io");
-  io.to(`post:${post._id}`).emit("newComment", {
-    postId: post._id,
-    comment: populatedComment,
-    commentsCount: post.commentsCount,
-  });
 
-  res.status(201).json({ success: true, comment: populatedComment, commentsCount: post.commentsCount });
+  res.status(201).json({ success: true, comment: populated });
+
 });
 
-// @desc    Get all comments for a post (paginated, newest last for chat-like reading order)
-// @route   GET /api/posts/:id/comments
+
+// @desc    Get all comments for a post or reel (with replies nested)
+
+// @route   GET /api/comments?targetType=post&targetId=...
+
 // @access  Public
+
 const getComments = asyncHandler(async (req, res) => {
-  const page = Math.max(parseInt(req.query.page) || 1, 1);
-  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const skip = (page - 1) * limit;
 
-  const [comments, total] = await Promise.all([
-    Comment.find({ post: req.params.id })
-      .sort({ createdAt: 1 })
-      .skip(skip)
-      .limit(limit)
-      .populate("user", "username name avatar"),
-    Comment.countDocuments({ post: req.params.id }),
-  ]);
+  const { targetType, targetId } = req.query;
 
-  res.status(200).json({ success: true, count: comments.length, total, comments });
+
+  await resolveTarget(targetType, targetId);
+
+
+  const topLevel = await Comment.find({
+
+    targetType,
+
+    targetId,
+
+    parentComment: null,
+
+  })
+
+    .sort({ createdAt: -1 })
+
+    .populate("author", "username name avatar")
+
+    .lean();
+
+
+  const replyIds = topLevel.map((c) => c._id);
+
+  const replies = await Comment.find({
+
+    parentComment: { $in: replyIds },
+
+  })
+
+    .sort({ createdAt: 1 })
+
+    .populate("author", "username name avatar")
+
+    .lean();
+
+
+  const replyMap = {};
+
+  for (const r of replies) {
+
+    const key = r.parentComment.toString();
+
+    if (!replyMap[key]) replyMap[key] = [];
+
+    replyMap[key].push(r);
+
+  }
+
+
+  const comments = topLevel.map((c) => ({
+
+    ...c,
+
+    replies: replyMap[c._id.toString()] || [],
+
+  }));
+
+
+  res.json({ success: true, count: comments.length, comments });
+
 });
 
-// @desc    Delete a comment (only comment owner or post owner can delete)
+
+// @desc    Delete a comment (own only)
+
 // @route   DELETE /api/comments/:id
+
 // @access  Private
+
 const deleteComment = asyncHandler(async (req, res) => {
-  const comment = await Comment.findById(req.params.id);
+
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+
+    res.status(400);
+
+    throw new Error("Invalid comment id.");
+
+  }
+
+
+  const comment = await Comment.findById(id);
+
   if (!comment) {
+
     res.status(404);
-    throw new Error("Comment not found");
+
+    throw new Error("Comment not found.");
+
   }
 
-  const post = await Post.findById(comment.post);
+  if (comment.author.toString() !== req.user._id.toString()) {
 
-  const isCommentOwner = comment.user.toString() === req.user._id.toString();
-  const isPostOwner = post && post.user.toString() === req.user._id.toString();
-
-  if (!isCommentOwner && !isPostOwner) {
     res.status(403);
-    throw new Error("You are not authorized to delete this comment");
+
+    throw new Error("Not authorized to delete this comment.");
+
   }
 
-  await comment.deleteOne();
 
-  if (post) {
-    post.commentsCount = Math.max(0, post.commentsCount - 1);
-    await post.save();
+  await Comment.deleteMany({
 
-    const io = req.app.get("io");
-    io.to(`post:${post._id}`).emit("commentDeleted", {
-      postId: post._id,
-      commentId: comment._id,
-      commentsCount: post.commentsCount,
-    });
-  }
+    $or: [{ _id: comment._id }, { parentComment: comment._id }],
 
-  res.status(200).json({ success: true, message: "Comment deleted successfully" });
+  });
+
+
+  res.json({ success: true, message: "Comment deleted." });
+
 });
 
-module.exports = { addComment, getComments, deleteComment };
+
+// @desc    Like / unlike a comment
+
+// @route   POST /api/comments/:id/like
+
+// @access  Private
+
+const toggleCommentLike = asyncHandler(async (req, res) => {
+
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+
+    res.status(400);
+
+    throw new Error("Invalid comment id.");
+
+  }
+
+
+  const comment = await Comment.findById(id);
+
+  if (!comment) {
+
+    res.status(404);
+
+    throw new Error("Comment not found.");
+
+  }
+
+
+  const userId = req.user._id.toString();
+
+  const idx = comment.likes.findIndex((u) => u.toString() === userId);
+
+  let liked;
+
+  if (idx >= 0) {
+
+    comment.likes.splice(idx, 1);
+
+    liked = false;
+
+  } else {
+
+    comment.likes.push(req.user._id);
+
+    liked = true;
+
+  }
+
+  await comment.save();
+
+
+  res.json({ success: true, liked, likeCount: comment.likes.length });
+
+});
+
+
+module.exports = { addComment, getComments, deleteComment, toggleCommentLike };
+
