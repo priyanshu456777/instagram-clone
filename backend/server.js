@@ -114,6 +114,7 @@ app.use("/api/stories", storyRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/reels", require("./routes/reelRoutes"));
 
 // ---------- Error handling (must be last) ----------
 app.use(notFound);

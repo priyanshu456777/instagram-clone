@@ -1,6 +1,17 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Home, Search, Bell, Bookmark, PlusSquare, User, LogOut, Compass, MessageSquare } from "lucide-react";
+import {
+  Home,
+  Compass,
+  Search,
+  Bell,
+  MessageSquare,
+  Bookmark,
+  PlusSquare,
+  User,
+  LogOut,
+  Video,        // ← ADDED (lucide-react mein hai)
+} from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Avatar from "../UI/Avatar";
 
@@ -11,6 +22,7 @@ const navItems = [
   { label: "Notifications", href: "/notifications", Icon: Bell },
   { label: "Messages", href: "/messages", Icon: MessageSquare },
   { label: "Saved", href: "/saved", Icon: Bookmark },
+  { label: "Reels", href: "/reels", Icon: Video },   // ← ab Video defined hai
 ];
 
 export default function Sidebar({ onCreatePost }) {
@@ -25,7 +37,11 @@ export default function Sidebar({ onCreatePost }) {
       </div>
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => {
-          const active = router.pathname === item.href;
+          const active =
+            item.href === "/"
+              ? router.pathname === "/" || router.pathname === "/index"
+              : router.pathname === item.href ||
+                router.asPath.startsWith(item.href);
           const Icon = item.Icon;
           return (
             <Link
@@ -52,7 +68,7 @@ export default function Sidebar({ onCreatePost }) {
           <Link
             href={`/profile/${user.username}`}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              router.pathname === "/profile/[username]"
+              router.asPath.startsWith("/profile/")
                 ? "bg-surface2 text-accent font-medium"
                 : "text-gray-300 hover:bg-surface2 hover:text-white"
             }`}
