@@ -1,3 +1,6 @@
+// backend/routes/postRoutes.js — REPLACE existing file.
+// Added: PUT /:id/save (bookmark), GET /saved (saved posts feed).
+
 const express = require("express");
 const {
   createPost,
@@ -7,6 +10,8 @@ const {
   getPostsByHashtag,
   deletePost,
   toggleLike,
+  toggleSave,
+  getSavedPosts,
 } = require("../controllers/postController");
 const {
   addComment,
@@ -18,9 +23,10 @@ const { commentValidator } = require("../middleware/validators");
 
 const router = express.Router();
 
-// IMPORTANT: static routes ("/hashtag/:tag", "/user/:userId") MUST be declared
-// before the dynamic "/:id" route — Express matches in declaration order,
-// otherwise "hashtag" or "user" would be treated as an ObjectId.
+// IMPORTANT: static routes MUST be declared before dynamic "/:id" —
+// Express matches in declaration order, otherwise "saved" or "user"
+// would be treated as a post id.
+router.get("/saved", protect, getSavedPosts);
 router.get("/hashtag/:tag", optionalAuth, getPostsByHashtag);
 router.get("/user/:userId", getPostsByUser);
 
@@ -36,6 +42,8 @@ router
   .delete(protect, deletePost);
 
 router.put("/:id/like", protect, toggleLike);
+router.put("/:id/save", protect, toggleSave);
+
 router
   .route("/:id/comments")
   .get(getComments)
