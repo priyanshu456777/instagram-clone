@@ -26,6 +26,11 @@ export default function SignupPage() {
             elements: {
               card: "shadow-none border border-border",
               rootBox: "w-full",
+              headerTitle: "text-white",
+              headerSubtitle: "text-gray-400",
+              dividerText: "text-gray-500",
+              dividerLine: "bg-border",
+              socialButtonsBlockButtonText: "text-gray-200",
               // colorInputText (in `variables` above) doesn't reliably reach the
               // actual <input> text color on this Clerk SDK version — force it
               // explicitly here, or typed text is invisible on the dark input bg.

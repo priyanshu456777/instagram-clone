@@ -26,6 +26,11 @@ export default function LoginPage() {
             elements: {
               card: "shadow-none border border-border",
               rootBox: "w-full",
+              headerTitle: "text-white",
+              headerSubtitle: "text-gray-400",
+              dividerText: "text-gray-500",
+              dividerLine: "bg-border",
+              socialButtonsBlockButtonText: "text-gray-200",
               // Same fix as signup page — force visible input text explicitly.
               formFieldInput:
                 "bg-[#0d1420] text-gray-200 border border-border focus:border-accent",
