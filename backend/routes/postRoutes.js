@@ -39,45 +39,9 @@ function resolveUpload() {
 }
 
 
-let upload = resolveUpload();
-
-if (!upload) {
-
-  console.warn("[postRoutes] uploadMiddleware not detected — using disk-storage fallback");
-
-  try {
-
-    const multer = require("multer");
-
-    const path = require("path");
-
-    const fs = require("fs");
-
-    const uploadDir = path.join(__dirname, "..", "uploads");
-
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-    upload = multer({
-
-      storage: multer.diskStorage({
-
-        destination: (req, file, cb) => cb(null, uploadDir),
-
-        filename: (req, file, cb) =>
-
-          cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
-
-      }),
-
-    });
-
-  } catch (e) {
-
-    console.error("[postRoutes] multer missing — npm i multer");
-
-  }
-
-}
+// Direct import — bypasses the buggy resolveUpload() defensive logic
+// that was silently falling back to disk storage and breaking Cloudinary uploads.
+const upload = require("../middleware/uploadMiddleware");
 
 
 const {
