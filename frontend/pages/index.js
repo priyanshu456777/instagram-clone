@@ -10,6 +10,8 @@ import ReelCard from "../components/Reel/ReelCard";
 
 import { PostCardSkeleton, StoryBarSkeleton } from "../components/UI/Skeletons";
 
+import LandingPage from "../components/Landing/LandingPage";
+
 import api from "../lib/api";
 
 import { useAuth } from "../context/AuthContext";
@@ -17,7 +19,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Home() {
 
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [feedType, setFeedType] = useState("forYou");
 
@@ -120,13 +122,15 @@ export default function Home() {
 
   useEffect(() => {
 
+    if (authLoading || !user) return;
+
     setLoading(true);
 
     setPage(1);
 
     fetchFeed(1, feedType);
 
-  }, [feedType, fetchFeed]);
+  }, [feedType, fetchFeed, authLoading, user]);
 
 
   useEffect(() => {
@@ -164,6 +168,26 @@ export default function Home() {
 
   }, [page, totalPages, loadingMore, fetchFeed, feedType]);
 
+
+  if (authLoading) {
+
+    return (
+
+      <div className="min-h-screen grid place-items-center bg-base">
+
+        <div className="w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin" />
+
+      </div>
+
+    );
+
+  }
+
+  if (!user) {
+
+    return <LandingPage />;
+
+  }
 
   return (
 
@@ -302,4 +326,3 @@ export default function Home() {
   );
 
 }
-
