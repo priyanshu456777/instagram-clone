@@ -107,6 +107,57 @@ async function attachViewerFlags(reel, viewerId) {
 }
 
 
+/* ---------- user reels (for profile page) ---------- */
+
+async function getUserReels(req, res, next) {
+
+  try {
+
+    const { identifier } = req.params;
+
+    const viewerId = req.user?._id;
+
+    let user = null;
+
+    if (mongoose.Types.ObjectId.isValid(identifier)) {
+
+      user = await User.findById(identifier).select("_id").lean();
+
+    }
+
+    if (!user) {
+
+      user = await User.findOne({ username: identifier.toLowerCase() })
+
+        .select("_id")
+
+        .lean();
+
+    }
+
+    if (!user) {
+
+      res.status(404);
+
+      throw new Error("User not found.");
+
+    }
+
+    const raw = await Reel.find({ user: user._id }).sort({ createdAt: -1 }).lean();
+
+    const reels = await Promise.all(raw.map((r) => attachViewerFlags(r, viewerId)));
+
+    res.json({ success: true, count: reels.length, reels });
+
+  } catch (err) {
+
+    next(err);
+
+  }
+
+}
+
+
 /* ---------- feed ---------- */
 
 async function getReelsFeed(req, res, next) {
@@ -313,6 +364,8 @@ async function deleteReel(req, res, next) {
 module.exports = {
 
   getReelsFeed,
+
+  getUserReels,
 
   createReel,
 

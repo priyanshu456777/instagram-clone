@@ -59,6 +59,8 @@ const {
 
   getReelsFeed,
 
+  getUserReels,
+
   createReel,
 
   likeReel,
@@ -76,6 +78,8 @@ const { addComment, getComments } = require("../controllers/commentController");
 /* ---------- route registration (every variation tolerated) ---------- */
 
 router.get("/", protect, getReelsFeed);
+
+router.get("/user/:identifier", protect, getUserReels);
 
 router.post("/", protect, upload ? upload.single("video") : (_req, _res, n) => n(), createReel);
 

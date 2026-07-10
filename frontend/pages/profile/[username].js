@@ -11,13 +11,15 @@ import { useEffect, useState } from "react";
 
 import { useRouter } from "next/router";
 
-import { Camera } from "lucide-react";
+import { Camera, Grid3x3, Film } from "lucide-react";
 
 import api from "../../lib/api";
 
 import ProfileHeader from "../../components/Profile/ProfileHeader";
 
 import PostsGrid from "../../components/Profile/PostsGrid";
+
+import ReelsGrid from "../../components/Profile/ReelsGrid";
 
 import PostDetailModal from "../../components/Profile/PostDetailModal";
 
@@ -38,6 +40,10 @@ export default function ProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
 
   const [posts, setPosts] = useState([]);
+
+  const [reels, setReels] = useState([]);
+
+  const [activeTab, setActiveTab] = useState("posts");
 
   const [loading, setLoading] = useState(true);
 
@@ -67,15 +73,23 @@ export default function ProfilePage() {
 
         .catch(() => ({ data: { posts: [] } })),
 
+      api
+
+        .get(`/reels/user/${username}`)
+
+        .catch(() => ({ data: { reels: [] } })),
+
     ])
 
-      .then(([u, p]) => {
+      .then(([u, p, r]) => {
 
         setProfile(u.data?.user || u.data);
 
         setIsFollowing(Boolean(u.data?.isFollowing));
 
         setPosts(p.data?.posts || []);
+
+        setReels(r.data?.reels || []);
 
       })
 
@@ -165,25 +179,81 @@ export default function ProfilePage() {
         />
 
 
-        <div className="mt-8 border-t border-zinc-800 pt-6">
+        <div className="mt-8 border-t border-zinc-800">
 
-          {posts.length === 0 ? (
+          <div className="flex justify-center gap-12">
 
-            <div className="flex flex-col items-center justify-center py-16 text-zinc-400">
+            <button
 
-              <Camera size={64} className="mb-3 opacity-50" />
+              onClick={() => setActiveTab("posts")}
 
-              <p className="text-lg font-medium">No posts yet</p>
+              className={`flex items-center gap-1.5 py-3 text-xs font-semibold uppercase tracking-wide border-t -mt-px ${
 
-              <p className="text-sm mt-1">Posts will appear here when shared.</p>
+                activeTab === "posts"
 
-            </div>
+                  ? "border-white text-white"
 
-          ) : (
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
 
-            <PostsGrid posts={posts} onPostClick={setSelectedPost} />
+              }`}
 
-          )}
+            >
+
+              <Grid3x3 size={14} /> Posts
+
+            </button>
+
+            <button
+
+              onClick={() => setActiveTab("reels")}
+
+              className={`flex items-center gap-1.5 py-3 text-xs font-semibold uppercase tracking-wide border-t -mt-px ${
+
+                activeTab === "reels"
+
+                  ? "border-white text-white"
+
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
+
+              }`}
+
+            >
+
+              <Film size={14} /> Reels
+
+            </button>
+
+          </div>
+
+          <div className="pt-4">
+
+            {activeTab === "posts" ? (
+
+              posts.length === 0 ? (
+
+                <div className="flex flex-col items-center justify-center py-16 text-zinc-400">
+
+                  <Camera size={64} className="mb-3 opacity-50" />
+
+                  <p className="text-lg font-medium">No posts yet</p>
+
+                  <p className="text-sm mt-1">Posts will appear here when shared.</p>
+
+                </div>
+
+              ) : (
+
+                <PostsGrid posts={posts} onPostClick={setSelectedPost} />
+
+              )
+
+            ) : (
+
+              <ReelsGrid reels={reels} />
+
+            )}
+
+          </div>
 
         </div>
 

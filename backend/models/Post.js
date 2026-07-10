@@ -38,11 +38,11 @@ postSchema.virtual("image").get(function () {
 });
 
 postSchema.virtual("likesCount").get(function () {
-  return this.likes.length;
+  return (this.likes || []).length;
 });
 
 postSchema.virtual("savesCount").get(function () {
-  return this.saved.length;
+  return (this.saved || []).length;
 });
 
 postSchema.set("toJSON", { virtuals: true });
