@@ -1,13 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
-import { X, Heart, Send } from "lucide-react";
+import { X, Heart, Send, Trash2 } from "lucide-react";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import Avatar from "../UI/Avatar";
 
 const STORY_DURATION = 5000; // 5 seconds per story
 
-export default function StoryViewer({ storyGroups: groups, startIndex, onClose, onViewed }) {
+export default function StoryViewer({ storyGroups: groups, startIndex, onClose, onViewed, onDeleted }) {
   const { user } = useAuth();
   const [groupIndex, setGroupIndex] = useState(startIndex);
   const [storyIndex, setStoryIndex] = useState(0);
@@ -15,6 +15,7 @@ export default function StoryViewer({ storyGroups: groups, startIndex, onClose, 
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const intervalRef = useRef(null);
   const elapsedRef = useRef(0);
   const lastTickRef = useRef(Date.now());
@@ -110,6 +111,27 @@ export default function StoryViewer({ storyGroups: groups, startIndex, onClose, 
     }
   };
 
+  const handleDelete = async () => {
+    if (deleting) return;
+    setIsPaused(true);
+    if (!window.confirm("Delete this story? This can't be undone.")) {
+      setIsPaused(false);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await api.delete(`/stories/${story._id}`);
+      toast.success("Story deleted");
+      onDeleted?.(story._id);
+      onClose();
+    } catch (err) {
+      toast.error(err.message || "Delete failed");
+      setIsPaused(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (!story) return null;
 
   return (
@@ -134,9 +156,21 @@ export default function StoryViewer({ storyGroups: groups, startIndex, onClose, 
             <Avatar src={group.user.avatar?.url} name={group.user.name} size={32} />
             <span className="text-white text-sm font-medium">{group.user.username}</span>
           </div>
-          <button onClick={onClose} className="text-white">
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-3">
+            {isOwnStory && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-white disabled:opacity-50"
+                aria-label="Delete story"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+            <button onClick={onClose} className="text-white">
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {/* eslint-disable-next-line @next/next/no-img-element */}

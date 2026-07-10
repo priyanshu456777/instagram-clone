@@ -2,7 +2,7 @@ const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const Story = require("../models/Story");
 const Notification = require("../models/Notification");
-const { uploadBufferToCloudinary } = require("../utils/cloudinaryUpload");
+const { uploadBufferToCloudinary, deleteFromCloudinary } = require("../utils/cloudinaryUpload");
 
 // @desc    Create a new story
 // @route   POST /api/stories
@@ -192,10 +192,40 @@ const getStorySeenBy = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Delete a story (owner only) — removes the image from Cloudinary
+//          and cleans up any "story_like" notifications pointing at it so
+//          nothing is left orphaned in the DB.
+// @route   DELETE /api/stories/:id
+// @access  Private
+const deleteStory = asyncHandler(async (req, res) => {
+  const story = await Story.findById(req.params.id);
+
+  if (!story) {
+    res.status(404);
+    throw new Error("Story not found");
+  }
+
+  if (story.user.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error("Not authorized to delete this story");
+  }
+
+  if (story.image?.publicId) {
+    await deleteFromCloudinary(story.image.publicId);
+  }
+
+  await Notification.deleteMany({ type: "story_like", story: story._id }).catch(() => null);
+
+  await story.deleteOne();
+
+  res.status(200).json({ success: true });
+});
+
 module.exports = {
   createStory,
   getStories,
   viewStory,
   toggleLikeStory,
   getStorySeenBy,
+  deleteStory,
 };

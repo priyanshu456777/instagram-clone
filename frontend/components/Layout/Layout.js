@@ -5,6 +5,7 @@ import { Bell } from "lucide-react";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import CreatePostModal from "../Post/CreatePostModal";
+import ThemeToggle from "../UI/ThemeToggle";
 
 export default function Layout({ children }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -22,6 +23,14 @@ export default function Layout({ children }) {
     <div className="flex min-h-screen bg-base text-gray-100 selection:bg-accent/30">
       <Sidebar onCreatePost={() => setShowCreateModal(true)} />
 
+      {/* Desktop-only: floating theme toggle, top-right corner of the screen. */}
+      <div className="hidden md:block fixed top-4 right-4 z-40">
+        <ThemeToggle
+          size={19}
+          className="w-10 h-10 bg-surface/80 glass-panel shadow-premium hover:bg-white/[0.06]"
+        />
+      </div>
+
       {/* Mobile-only top bar: houses the Notifications icon top-right, Instagram-style */}
       <header
         className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 bg-surface/80 glass-panel shadow-premium"
@@ -36,21 +45,25 @@ export default function Layout({ children }) {
           </span>
         </div>
 
-        <Link
-          href="/notifications"
-          aria-label="Notifications"
-          className={`grid place-items-center w-9 h-9 rounded-xl transition-all duration-200 active:scale-90 ${
-            router.pathname === "/notifications"
-              ? "text-white bg-white/[0.08]"
-              : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
-          }`}
-        >
-          <Bell
-            size={22}
-            strokeWidth={router.pathname === "/notifications" ? 2.5 : 2}
-            fill={router.pathname === "/notifications" ? "currentColor" : "none"}
-          />
-        </Link>
+        <div className="flex items-center gap-1">
+          <ThemeToggle size={20} className="w-9 h-9" />
+
+          <Link
+            href="/notifications"
+            aria-label="Notifications"
+            className={`grid place-items-center w-9 h-9 rounded-xl transition-all duration-200 active:scale-90 ${
+              router.pathname === "/notifications"
+                ? "text-white bg-white/[0.08]"
+                : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
+            }`}
+          >
+            <Bell
+              size={22}
+              strokeWidth={router.pathname === "/notifications" ? 2.5 : 2}
+              fill={router.pathname === "/notifications" ? "currentColor" : "none"}
+            />
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 min-h-screen pb-20 pt-14 md:pt-0 md:pb-0">{children}</main>

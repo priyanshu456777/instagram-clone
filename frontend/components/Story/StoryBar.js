@@ -52,6 +52,14 @@ export default function StoryBar() {
     }
   };
 
+  const handleStoryDeleted = (storyId) => {
+    setStoryGroups((prev) =>
+      prev
+        .map((g) => ({ ...g, stories: g.stories.filter((s) => s._id !== storyId) }))
+        .filter((g) => g.stories.length > 0)
+    );
+  };
+
   if (!user || loading) return null;
 
   const ownGroupIndex = storyGroups.findIndex((g) => g.user._id === user._id);
@@ -136,6 +144,7 @@ export default function StoryBar() {
           storyGroups={storyGroups}
           startIndex={viewerIndex}
           onClose={() => setViewerIndex(null)}
+          onDeleted={handleStoryDeleted}
         />
       )}
     </div>

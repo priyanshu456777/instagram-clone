@@ -10,10 +10,10 @@ module.exports = {
         // Existing tokens — values refined for a richer, more premium dark
         // palette, but the keys are unchanged so every existing class
         // (bg-surface, text-accent, border-border, etc.) keeps working.
-        base: "#08080a",
-        surface: "#141418",
-        surface2: "#1d1d23",
-        border: "#27272e",
+        base: "rgb(var(--color-base) / <alpha-value>)",
+        surface: "rgb(var(--color-surface) / <alpha-value>)",
+        surface2: "rgb(var(--color-surface2) / <alpha-value>)",
+        border: "rgb(var(--color-border) / <alpha-value>)",
         accent: "#8b5cf6",
         accentSoft: "#7c3aed",
         like: "#fb2c55",
