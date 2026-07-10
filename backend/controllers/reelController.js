@@ -4,6 +4,8 @@ const Reel = require("../models/Reel");
 
 const User = require("../models/User");
 
+const Comment = require("../models/Comment");
+
 const mongoose = require("mongoose");
 
 
@@ -146,6 +148,23 @@ async function createReel(req, res, next) {
 
     if (!file) return res.status(400).json({ success: false, error: "Video file required" });
 
+    if (!file.buffer) {
+      return res.status(500).json({ success: false, error: "Upload storage misconfigured (no buffer)" });
+    }
+
+    // Upload the in-memory video buffer to Cloudinary — uploadMiddleware uses
+    // memoryStorage(), so file.path is always undefined. This also gives us
+    // an auto-generated thumbnail (poster frame) via the eager transform.
+    const { uploadVideoToCloudinary } = require("../utils/cloudinaryVideoUpload");
+    let uploaded;
+    try {
+      uploaded = await uploadVideoToCloudinary(file.buffer, "instaclone/reels");
+    } catch (uploadErr) {
+      console.error("[createReel] Cloudinary video upload failed:", uploadErr.message);
+      return res.status(502).json({ success: false, error: "Video upload failed. Please try again." });
+    }
+
+    const eagerThumb = uploaded.eager?.[0]?.secure_url || "";
 
     const reel = await Reel.create({
 
@@ -153,11 +172,13 @@ async function createReel(req, res, next) {
 
       caption: (req.body.caption || "").trim(),
 
-      videoUrl: file.path,
+      videoUrl: uploaded.secure_url,
 
-      thumbnailUrl: req.body.thumbnailUrl || "",
+      videoPublicId: uploaded.public_id,
 
-      duration: Number(req.body.duration) || 0,
+      thumbnailUrl: req.body.thumbnailUrl || eagerThumb,
+
+      duration: Number(req.body.duration) || uploaded.duration || 0,
 
     });
 
@@ -252,318 +273,6 @@ async function likeReel(req, res, next) {
 }
 
 
-/* ============================================================
-
-   COMMENTS — entry log at the very top, native MongoDB driver
-
-   ============================================================ */
-
-
-async function getReelComments(req, res) {
-
-  console.log("[getReelComments] ENTRY", { reelId: req.params.id, userId: req.user?._id });
-
-
-  try {
-
-    const reelId = req.params.id;
-
-
-    // Native-only read
-
-    if (mongoose.connection.readyState !== 1) {
-
-      console.error("[getReelComments] mongoose not connected");
-
-      return res.status(500).json({ success: false, error: "DB not ready" });
-
-    }
-
-    const coll = mongoose.connection.db.collection("reels");
-
-    const oid = toObjectId(reelId);
-
-    if (!oid) {
-
-      console.error("[getReelComments] invalid reelId");
-
-      return res.status(400).json({ success: false, error: "Invalid reel id" });
-
-    }
-
-    const reel = await coll.findOne({ _id: oid });
-
-    if (!reel) {
-
-      console.error("[getReelComments] reel not found");
-
-      return res.status(404).json({ success: false, error: "Reel not found" });
-
-    }
-
-
-    let comments = Array.isArray(reel.comments) ? reel.comments : [];
-
-    console.log("[getReelComments] found", comments.length, "comments");
-
-
-    const needRefIds = comments
-
-      .filter((c) => !(c.userSnapshot && c.userSnapshot.username))
-
-      .map((c) => (c.userSnapshot && c.userSnapshot._id) || c.user)
-
-      .filter(Boolean)
-
-      .map(asStringId);
-
-
-    let refMap = new Map();
-
-    if (needRefIds.length) {
-
-      const oidList = needRefIds.map((s) => toObjectId(s)).filter(Boolean);
-
-      if (oidList.length) {
-
-        const users = await mongoose.connection.db.collection("users")
-
-          .find({ _id: { $in: oidList } })
-
-          .project({ username: 1, name: 1, avatar: 1 })
-
-          .toArray();
-
-        refMap = new Map(users.map((u) => [String(u._id), u]));
-
-      }
-
-    }
-
-
-    const hydrated = comments.map((c) => {
-
-      let user = c.userSnapshot || null;
-
-      if (!user || !user.username) {
-
-        const refId = asStringId(c.user);
-
-        if (refId && refMap.has(refId)) {
-
-          const u = refMap.get(refId);
-
-          user = { _id: u._id, username: u.username, name: u.name, avatar: u.avatar };
-
-        }
-
-      }
-
-      return {
-
-        _id: c._id || String(Math.random()),
-
-        text: c.text || "",
-
-        user,
-
-        createdAt: c.createdAt || new Date(),
-
-      };
-
-    }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-
-
-    res.json({ success: true, comments: hydrated });
-
-  } catch (err) {
-
-    console.error("[getReelComments] ERROR:", err.message, err.stack);
-
-    res.status(500).json({ success: false, error: err.message });
-
-  }
-
-}
-
-
-async function addReelComment(req, res) {
-
-  console.log("[addReelComment] ENTRY", {
-
-    reelId: req.params.id,
-
-    userId: req.user?._id,
-
-    hasUser: !!req.user,
-
-    text: (req.body.text || "").slice(0, 50),
-
-  });
-
-
-  try {
-
-    /* ---- validate ---- */
-
-    const reelId = req.params.id;
-
-    const userId = req.user?._id || req.user?.id;
-
-    const text = (req.body.text || "").trim();
-
-
-    if (!text) {
-
-      console.error("[addReelComment] empty text");
-
-      return res.status(400).json({ success: false, error: "Comment text required" });
-
-    }
-
-    if (!userId) {
-
-      console.error("[addReelComment] no userId on req.user");
-
-      return res.status(401).json({ success: false, error: "Not authenticated" });
-
-    }
-
-
-    const oid = toObjectId(reelId);
-
-    if (!oid) {
-
-      console.error("[addReelComment] invalid reelId:", reelId);
-
-      return res.status(400).json({ success: false, error: "Invalid reel id" });
-
-    }
-
-
-    if (mongoose.connection.readyState !== 1) {
-
-      console.error("[addReelComment] mongoose not connected, readyState:", mongoose.connection.readyState);
-
-      return res.status(500).json({ success: false, error: "DB not ready" });
-
-    }
-
-
-    /* ---- verify reel exists via native ---- */
-
-    const reelsColl = mongoose.connection.db.collection("reels");
-
-    const reel = await reelsColl.findOne({ _id: oid });
-
-    if (!reel) {
-
-      console.error("[addReelComment] reel not found:", reelId);
-
-      return res.status(404).json({ success: false, error: "Reel not found" });
-
-    }
-
-
-    /* ---- hydrate user ---- */
-
-    let userObj = { _id: userId, username: "user", name: "", avatar: null };
-
-    try {
-
-      const userOid = toObjectId(userId);
-
-      if (userOid) {
-
-        const u = await mongoose.connection.db.collection("users")
-
-          .findOne({ _id: userOid }, { projection: { username: 1, name: 1, avatar: 1 } });
-
-        if (u) userObj = { _id: u._id, username: u.username, name: u.name, avatar: u.avatar };
-
-      }
-
-    } catch (_) {}
-
-
-    /* ---- build comment ---- */
-
-    const newComment = {
-
-      _id: new mongoose.Types.ObjectId().toString(),
-
-      user: userId,
-
-      userSnapshot: userObj,
-
-      text,
-
-      createdAt: new Date(),
-
-    };
-
-
-    console.log("[addReelComment] attempting $push to reel", reelId);
-
-
-    /* ---- pure native $push ---- */
-
-    const result = await reelsColl.updateOne(
-
-      { _id: oid },
-
-      { $push: { comments: newComment } }
-
-    );
-
-
-    console.log("[addReelComment] native $push result:", {
-
-      matched: result.matchedCount,
-
-      modified: result.modifiedCount,
-
-    });
-
-
-    if (result.matchedCount === 0) {
-
-      console.error("[addReelComment] updateOne matched 0 docs!");
-
-      return res.status(500).json({ success: false, error: "Reel not found during update" });
-
-    }
-
-
-    return res.status(201).json({
-
-      success: true,
-
-      comment: { ...newComment, user: userObj },
-
-    });
-
-  } catch (err) {
-
-    console.error("[addReelComment] OUTER ERROR:", err.message);
-
-    console.error(err.stack);
-
-    return res.status(500).json({
-
-      success: false,
-
-      error: err.message,
-
-      type: err.name,
-
-    });
-
-  }
-
-}
-
-
 /* ---------- delete ---------- */
 
 async function deleteReel(req, res, next) {
@@ -579,6 +288,14 @@ async function deleteReel(req, res, next) {
       return res.status(403).json({ success: false, error: "Not authorized" });
 
     }
+
+    if (reel.videoPublicId) {
+      const { deleteVideoFromCloudinary } = require("../utils/cloudinaryVideoUpload");
+      await deleteVideoFromCloudinary(reel.videoPublicId).catch(() => null);
+    }
+
+    // Clean up this reel's comments so they don't get orphaned in the DB.
+    await Comment.deleteMany({ targetType: "reel", targetId: reel._id }).catch(() => null);
 
     await reel.deleteOne();
 
@@ -601,11 +318,6 @@ module.exports = {
 
   likeReel,
 
-  getReelComments,
-
-  addReelComment,
-
   deleteReel,
 
 };
-

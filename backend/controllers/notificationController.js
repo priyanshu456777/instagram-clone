@@ -9,7 +9,8 @@ const getNotifications = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .limit(50)
     .populate("sender", "username name avatar")
-    .populate("post", "image")
+    .populate("post", "images")
+    .populate("reel", "thumbnailUrl")
     .populate("story", "image");
 
   const unreadCount = await Notification.countDocuments({

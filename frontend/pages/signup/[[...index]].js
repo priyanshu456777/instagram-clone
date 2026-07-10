@@ -26,6 +26,16 @@ export default function SignupPage() {
             elements: {
               card: "shadow-none border border-border",
               rootBox: "w-full",
+              // colorInputText (in `variables` above) doesn't reliably reach the
+              // actual <input> text color on this Clerk SDK version — force it
+              // explicitly here, or typed text is invisible on the dark input bg.
+              formFieldInput:
+                "bg-[#0d1420] text-gray-200 border border-border focus:border-accent",
+              formFieldLabel: "text-gray-300",
+              identityPreviewText: "text-gray-200",
+              identityPreviewEditButtonIcon: "text-accent",
+              footerActionText: "text-gray-400",
+              footerActionLink: "text-accent hover:text-accentSoft",
             },
           }}
         />

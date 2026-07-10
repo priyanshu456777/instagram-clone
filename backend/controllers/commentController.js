@@ -116,6 +116,7 @@ const addComment = asyncHandler(async (req, res) => {
         type: parentComment ? "reply" : "comment",
         targetType,
         targetId,
+        io,
       })
     ).catch((e) => console.warn("[comment] notification skipped:", e.message));
   }

@@ -26,6 +26,14 @@ export default function LoginPage() {
             elements: {
               card: "shadow-none border border-border",
               rootBox: "w-full",
+              // Same fix as signup page — force visible input text explicitly.
+              formFieldInput:
+                "bg-[#0d1420] text-gray-200 border border-border focus:border-accent",
+              formFieldLabel: "text-gray-300",
+              identityPreviewText: "text-gray-200",
+              identityPreviewEditButtonIcon: "text-accent",
+              footerActionText: "text-gray-400",
+              footerActionLink: "text-accent hover:text-accentSoft",
             },
           }}
         />

@@ -785,7 +785,7 @@ const deletePost = asyncHandler(async (req, res) => {
   }
 
 
-  await Comment.deleteMany({ post: post._id });
+  await Comment.deleteMany({ targetType: "post", targetId: post._id });
 
   await post.deleteOne();
 
@@ -815,4 +815,3 @@ module.exports = {
   deletePost,
 
 };
-

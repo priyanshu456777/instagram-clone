@@ -12,10 +12,21 @@ import { useAuth } from "../context/AuthContext";
 const messages = {
   like: "liked your post",
   comment: "commented on your post",
+  reply: "replied to your comment",
   follow: "started following you",
+  mention: "mentioned you in a post",
   story_like: "liked your story",
   story_reply: "replied to your story",
 };
+
+function getMessage(n) {
+  if (n.reel && (n.type === "like" || n.type === "comment" || n.type === "reply")) {
+    if (n.type === "like") return "liked your reel";
+    if (n.type === "reply") return "replied to your comment";
+    return "commented on your reel";
+  }
+  return messages[n.type] || "sent you a notification";
+}
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -42,18 +53,8 @@ export default function Notifications() {
     if (!user) return;
     const socket = getSocket();
     const handleNew = (payload) => {
-      setNotifications((prev) => [
-        {
-          _id: Date.now().toString(),
-          type: payload.type,
-          sender: payload.from,
-          post: payload.postId ? { _id: payload.postId } : undefined,
-          createdAt: payload.createdAt,
-          read: false,
-        },
-        ...prev,
-      ]);
-      toast(`${payload.from.username} ${messages[payload.type] || "sent a notification"}`, {
+      setNotifications((prev) => [payload, ...prev]);
+      toast(`${payload.sender?.username || "Someone"} ${getMessage(payload)}`, {
         icon: "🔔",
       });
     };
@@ -63,8 +64,9 @@ export default function Notifications() {
 
   const getIcon = (type) => {
     if (type === "like" || type === "story_like") return "❤️";
-    if (type === "comment") return "💬";
+    if (type === "comment" || type === "reply") return "💬";
     if (type === "story_reply") return "↩️";
+    if (type === "mention") return "📣";
     return null;
   };
 
@@ -90,7 +92,7 @@ export default function Notifications() {
                 <div className="flex-1 text-sm">
                   <span className="font-medium">{n.sender?.username}</span>{" "}
                   <span className="text-gray-300">
-                    {messages[n.type] || "sent you a notification"}
+                    {getMessage(n)}
                   </span>
                   <div className="text-xs text-gray-500">{format(n.createdAt)}</div>
                 </div>

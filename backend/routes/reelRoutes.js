@@ -63,30 +63,14 @@ const {
 
   likeReel,
 
-  getReelComments,
-
-  addReelComment,
-
   deleteReel,
 
 } = ctrl;
 
-
-console.log("[reelRoutes] mounted", {
-
-  hasFeed: typeof getReelsFeed,
-
-  hasCreate: typeof createReel,
-
-  hasLike: typeof likeReel,
-
-  hasGetComments: typeof getReelComments,
-
-  hasAddComment: typeof addReelComment,
-
-  hasDelete: typeof deleteReel,
-
-});
+// Reel comments now go through the same polymorphic Comment model that
+// Posts use (real DB storage, real-time socket emit, notifications,
+// threaded replies) instead of the old embedded-array hack.
+const { addComment, getComments } = require("../controllers/commentController");
 
 
 /* ---------- route registration (every variation tolerated) ---------- */
@@ -99,12 +83,21 @@ router.put("/:id/like", protect, likeReel);
 
 router.post("/:id/like", protect, likeReel); // legacy fallback if client uses POST
 
-router.get("/:id/comments", protect, getReelComments);
+// Frontend expects /reels/:id/comments — wire it to the same polymorphic
+// comment controller Posts use, by injecting targetType/targetId.
+router.get("/:id/comments", protect, (req, res, next) => {
+  req.query.targetType = "reel";
+  req.query.targetId = req.params.id;
+  return getComments(req, res, next);
+});
 
-router.post("/:id/comments", protect, addReelComment);
+router.post("/:id/comments", protect, (req, res, next) => {
+  req.body.targetType = "reel";
+  req.body.targetId = req.params.id;
+  return addComment(req, res, next);
+});
 
 router.delete("/:id", protect, deleteReel);
 
 
 module.exports = router;
-

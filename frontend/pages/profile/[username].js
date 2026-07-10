@@ -35,6 +35,8 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState(null);
 
+  const [isFollowing, setIsFollowing] = useState(false);
+
   const [posts, setPosts] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -70,6 +72,8 @@ export default function ProfilePage() {
       .then(([u, p]) => {
 
         setProfile(u.data?.user || u.data);
+
+        setIsFollowing(Boolean(u.data?.isFollowing));
 
         setPosts(p.data?.posts || []);
 
@@ -150,6 +154,12 @@ export default function ProfilePage() {
 
           profile={profile}
 
+          isFollowing={isFollowing}
+
+          postsCount={posts.length}
+
+          onFollowChange={setIsFollowing}
+
           onEditClick={() => setShowEdit(true)}
 
         />
@@ -188,6 +198,10 @@ export default function ProfilePage() {
 
           onClose={() => setSelectedPost(null)}
 
+          onPostDeleted={(deletedId) =>
+            setPosts((prev) => prev.filter((p) => p._id !== deletedId))
+          }
+
         />
 
       )}
@@ -211,4 +225,3 @@ export default function ProfilePage() {
   );
 
 }
-
