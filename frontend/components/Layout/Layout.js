@@ -17,10 +17,10 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-base text-gray-100">
+    <div className="flex min-h-screen bg-base text-gray-100 selection:bg-accent/30">
       <Sidebar onCreatePost={() => setShowCreateModal(true)} />
 
-      <main className="flex-1 min-h-screen pb-16 md:pb-0">{children}</main>
+      <main className="flex-1 min-h-screen pb-20 md:pb-0">{children}</main>
 
       <MobileNav onCreatePost={() => setShowCreateModal(true)} />
 

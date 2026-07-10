@@ -17,7 +17,7 @@ export default function MobileNav({ onCreatePost }) {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex justify-between items-center px-2 py-2.5 z-40">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface/80 glass-panel flex justify-between items-center px-2 py-2 z-40 shadow-premium-lg">
       {items.map((item, i) => {
         const Icon = item.Icon;
         const active = !item.action && router.pathname === item.href;
@@ -28,9 +28,11 @@ export default function MobileNav({ onCreatePost }) {
               key={i}
               onClick={item.action}
               aria-label={item.label}
-              className="flex-1 flex flex-col items-center py-1 text-gray-300 hover:text-white transition-colors"
+              className="flex-1 flex flex-col items-center py-1.5 text-gray-300 hover:text-white active:scale-90 transition-all duration-150"
             >
-              <Icon size={22} strokeWidth={2} />
+              <span className="grid place-items-center w-9 h-9 rounded-xl bg-gradient-premium shadow-glow">
+                <Icon size={19} strokeWidth={2.3} className="text-white" />
+              </span>
             </button>
           );
         }
@@ -40,15 +42,24 @@ export default function MobileNav({ onCreatePost }) {
             key={i}
             href={item.href}
             aria-label={item.label}
-            className={`flex-1 flex flex-col items-center py-1 transition-colors ${
-              active ? "text-accent" : "text-gray-300 hover:text-white"
+            className={`flex-1 flex flex-col items-center py-1.5 transition-all duration-200 active:scale-90 ${
+              active ? "text-white" : "text-gray-400 hover:text-white"
             }`}
           >
-            <Icon
-              size={22}
-              strokeWidth={active ? 2.5 : 2}
-              fill={active && item.fillable ? "currentColor" : "none"}
-            />
+            <span
+              className={`grid place-items-center w-9 h-9 rounded-xl transition-colors duration-200 ${
+                active ? "bg-white/[0.08]" : ""
+              }`}
+            >
+              <Icon
+                size={22}
+                strokeWidth={active ? 2.5 : 2}
+                fill={active && item.fillable ? "currentColor" : "none"}
+              />
+            </span>
+            {active && (
+              <span className="w-1 h-1 rounded-full bg-gradient-premium mt-0.5" />
+            )}
           </Link>
         );
       })}
