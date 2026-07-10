@@ -66,6 +66,8 @@ const {
 
 } = require("../controllers/postController");
 
+const { addComment, getComments } = require("../controllers/commentController");
+
 
 // Resolve `protect` defensively
 
@@ -107,6 +109,19 @@ router.get("/saved", protect, getSavedPosts);
 router.get("/hashtag/:tag", getPostsByHashtag);
 
 router.get("/user/:identifier", getUserPosts);
+// Frontend expects /posts/:id/comments — wire it to the polymorphic
+// comment controller by injecting targetType/targetId.
+router.get("/:id/comments", protect, (req, res, next) => {
+  req.query.targetType = "post";
+  req.query.targetId = req.params.id;
+  return getComments(req, res, next);
+});
+
+router.post("/:id/comments", protect, (req, res, next) => {
+  req.body.targetType = "post";
+  req.body.targetId = req.params.id;
+  return addComment(req, res, next);
+});
 
 router.get("/:id", getPostById);
 
