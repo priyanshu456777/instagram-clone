@@ -114,36 +114,32 @@ const attachUserFlags = (posts, userId) => {
 };
 
 
-// Normalize uploaded image(s) into { url, publicId } shape
-
+// Normalize uploaded image(s) into { url, publicId } shape.
+// Handles both disk storage (path/filename set) and memory storage
+// (only buffer + originalname set) — Cloudinary step below populates the
+// real URL for memory storage uploads.
 function normalizeImages(req) {
-
   const out = [];
+  const files = Array.isArray(req.files) && req.files.length
+    ? req.files
+    : req.file
+    ? [req.file]
+    : [];
 
-  if (Array.isArray(req.files) && req.files.length) {
+  for (const f of files) {
+    // Disk storage / cloudinary storage — has a real path or url
+    const url = f.path || f.secure_url || f.url;
+    const publicId = f.filename || f.public_id || f.publicId;
 
-    for (const f of req.files) {
-
-      const url = f.path || f.secure_url || f.url;
-
-      const publicId = f.filename || f.public_id || f.publicId;
-
-      if (url) out.push({ url, publicId: publicId || "" });
-
+    if (url) {
+      out.push({ url, publicId: publicId || "" });
+    } else if (f.buffer) {
+      // Memory storage — we have the file in buffer, Cloudinary will
+      // upload it and populate the real URL below.
+      out.push({ url: "", publicId: f.originalname || "" });
     }
-
-  } else if (req.file) {
-
-    const url = req.file.path || req.file.secure_url || req.file.url;
-
-    const publicId = req.file.filename || req.file.public_id || req.file.publicId;
-
-    if (url) out.push({ url, publicId: publicId || "" });
-
   }
-
   return out;
-
 }
 
 
