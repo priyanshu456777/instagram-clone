@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Home, Search, PlusSquare, Bell, MessageSquare, User } from "lucide-react";
+import { Home, Search, PlusSquare, Video, MessageSquare, User } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export default function MobileNav({ onCreatePost }) {
@@ -11,7 +11,7 @@ export default function MobileNav({ onCreatePost }) {
     { href: "/", label: "Home", Icon: Home, fillable: true },
     { href: "/search", label: "Search", Icon: Search },
     { href: "#create", label: "Create", Icon: PlusSquare, action: onCreatePost },
-    { href: "/notifications", label: "Notifications", Icon: Bell, fillable: true },
+    { href: "/reels", label: "Reels", Icon: Video, fillable: true },
     { href: "/messages", label: "Messages", Icon: MessageSquare, fillable: true },
     { href: user ? `/profile/${user.username}` : "/login", label: "Profile", Icon: User, fillable: true },
   ];
