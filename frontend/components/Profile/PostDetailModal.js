@@ -1,6 +1,9 @@
 import PostCard from "../Post/PostCard";
+import { useAuth } from "../../context/AuthContext";
 
-export default function PostDetailModal({ post, onClose }) {
+export default function PostDetailModal({ post, onClose, onPostDeleted }) {
+  const { user } = useAuth();
+
   return (
     <div
       className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 px-4 py-8 overflow-y-auto"
@@ -12,7 +15,11 @@ export default function PostDetailModal({ post, onClose }) {
             ✕
           </button>
         </div>
-        <PostCard post={post} />
+        <PostCard
+          post={post}
+          currentUser={user}
+          onPostDeleted={(id) => { onPostDeleted?.(id); onClose(); }}
+        />
       </div>
     </div>
   );

@@ -263,7 +263,14 @@ export default function Home() {
 
             ) : (
 
-              <PostCard key={`post-${item.data._id}-${idx}`} post={item.data} />
+              <PostCard
+  key={`post-${item.data._id}-${idx}`}
+  post={item.data}
+  currentUser={user}
+  onPostDeleted={(deletedId) =>
+    setFeed((prev) => prev.filter((it) => it.data._id !== deletedId))
+  }
+/>
 
             )
 
